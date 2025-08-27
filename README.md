@@ -1,15 +1,18 @@
-# metagenomics
+# Metagenomics
 Just a place to store some useful CLI commands and project scripts
 
 | Category | Function | Code |
 |:---:|:---:|:---:|
 |slurm|check slurm queue in long form|squeue --format="%.18i %.9P %.100j %.8u %.8T %.10M %.9l %.6D %R" --me
+|slurm|checking job resource usage|sacct -u bdavis05 -o jobid,jobname,elapsed,TotalCPU,MaxRSS,MaxVMsize --starttime=01/10/25 --endtime=01/30/25 --state=COMPLETED
+|slurm|cancel pending jobs|squeue -u bdavis05 --state=PENDING --noheader --format=%i | xargs scancel
+|slurm|cancel job arrays|squeue -u bdavis05 -j 766815* --noheader --format=%i | xargs scancel
+|file management|check sort directory files|du -sh * | sort -rh | head -30
 
-du -sh * | sort -rh | head -30
 
-sacct -j 589521 -o jobid,jobname,elapsed,TotalCPU,MaxRSS,MaxVMsize,nodelist --starttime=01/01/25 --endtime=01/30/25
 
-sacct -u bdavis05 -o jobid,jobname,elapsed,TotalCPU,MaxRSS,MaxVMsize --starttime=01/10/25 --endtime=01/30/25 --state=COMPLETED
+
+
 
 awk 'FNR==1 && NR!=1 {next} 1' * > afp_sal.tsv
 
@@ -17,11 +20,7 @@ awk 'FNR==1 && NR!=1 {next} {print FILENAME "\t" $0}' *species > all.species.tsv
 
 awk -F "\t" '{ if(($9 >= 80) && ($17 <= 1E-10)) { print } }' sra.card.hits.tsv > sra.card.hits.filtered.tsv
 
-squeue -u bdavis05 --state=PENDING --noheader --format=%i | xargs scancel
 
-squeue -u bdavis05 -j 766815* --noheader --format=%i | xargs scancel
-
-scancel --state=PENDING 809666
 
 samtools view -F 4 118_S42.sorted.bam | awk -v file="118_S42.sorted.bam" '{SUM += length($10)} END {print file "\t" SUM/10^9}'
 
