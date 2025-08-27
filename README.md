@@ -1,5 +1,5 @@
 # Metagenomics
-Just a place to store some useful CLI commands and project scripts
+Just a place to store useful CLI one-liners and project scripts
 
 | Category | Function | Code |
 |:---:|:---:|:---:|
