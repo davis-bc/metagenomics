@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script to validate and optionally correct paired FASTQ files using seqtk
-# Usage: ./validate_and_fix_paired_fastq.sh R1.fastq.gz R2.fastq.gz
+# Script to validate, fix and check paired FASTQ files for SRA submission
+# Usage: ./validate_and_fix_fastqs.sh R1.fastq.gz R2.fastq.gz
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <R1_fastq.gz> <R2_fastq.gz>"
@@ -14,6 +14,23 @@ R2=$2
 # Confirm seqtk is installed
 if ! command -v seqtk &> /dev/null; then
     echo "seqtk could not be found. Please ensure seqtk is installed and accessible in your PATH."
+    exit 1
+fi
+
+# Confirm gzip is installed
+if ! command -v gzip &> /dev/null; then
+    echo "gzip could not be found. Please ensure gzip is installed and accessible in your PATH."
+    exit 1
+fi
+
+# Validate gzip compression
+if ! gzip -t "$R1" 2>/dev/null; then
+    echo "Error: $R1 is not a valid gzip-compressed file or is corrupted."
+    exit 1
+fi
+
+if ! gzip -t "$R2" 2>/dev/null; then
+    echo "Error: $R2 is not a valid gzip-compressed file or is corrupted."
     exit 1
 fi
 
@@ -32,11 +49,26 @@ if ! [ -r "$R2" ]; then
     exit 1
 fi
 
-# Validate pairing with seqtk seq -A
-echo "Checking pairing of the FASTQ files..."
-PAIR_VALIDATION=$(seqtk seq -A "$R1" | awk '{if (NR%4==1) print substr($1, 2)}' | \
+# Validate paired FASTQ file formatting with seqtk seq -A
+validate_fastq() {
+    local file=$1
+    zcat "$file" | awk 'NR%4==1 {if($1!~/^@/) exit 1}'
+}
+
+if ! validate_fastq "$R1"; then
+    echo "Error: $R1 is not a properly formatted FASTQ file."
+    exit 1
+fi
+
+if ! validate_fastq "$R2"; then
+    echo "Error: $R2 is not a properly formatted FASTQ file."
+    exit 1
+fi
+
+# Check pairing of FASTQ files
+PAIR_VALIDATION=$(zcat "$R1" | awk '{if (NR%4==1) print substr($1, 2)}' | \
                   sort > R1_ids.txt)
-seqtk seq -A "$R2" | awk '{if (NR%4==1) print substr($1, 2)}' | \
+zcat "$R2" | awk '{if (NR%4==1) print substr($1, 2)}' | \
     sort > R2_ids.txt
 
 comm -12 R1_ids.txt R2_ids.txt > paired_ids.txt
@@ -57,10 +89,10 @@ else
 
     # Proceed to fix the files
     echo "Fixing unpaired FASTQ files..."
-    seqtk subseq "$R1" paired_ids.txt > R1_fixed.fastq.gz
-    seqtk subseq "$R2" paired_ids.txt > R2_fixed.fastq.gz
+    seqtk subseq "$R1" paired_ids.txt | gzip -c > R1_fixed.fastq.gz
+    seqtk subseq "$R2" paired_ids.txt | gzip -c > R2_fixed.fastq.gz
     echo "Fixed files created: R1_fixed.fastq.gz and R2_fixed.fastq.gz"
     rm paired_ids.txt
 fi
 
-echo "FASTQ file validation and correction completed."
+echo "FASTQ file validation, correction, and compression checks completed."
