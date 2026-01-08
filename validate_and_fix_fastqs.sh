@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to validate, fix and check paired FASTQ files for SRA submission
+# Script to validate, fix, and check paired FASTQ files for SRA submission
 # Usage: ./validate_and_fix_fastqs.sh R1.fastq.gz R2.fastq.gz
 
 if [ "$#" -ne 2 ]; then
@@ -24,15 +24,32 @@ if ! command -v gzip &> /dev/null; then
 fi
 
 # Validate gzip compression
-if ! gzip -t "$R1" 2>/dev/null; then
-    echo "Error: $R1 is not a valid gzip-compressed file or is corrupted."
-    exit 1
-fi
+validate_gzip() {
+    local file=$1
+    if ! gzip -t "$file" 2>/dev/null; then
+        echo "Warning: File $file is not a valid gzip-compressed file. Attempting to fix..."
+        TEMPFILE="${file%.gz}_temp"
+        if gunzip -c "$file" > "$TEMPFILE" && gzip "$TEMPFILE" && mv "$TEMPFILE.gz" "$file"; then
+            echo "File $file was successfully re-compressed."
 
-if ! gzip -t "$R2" 2>/dev/null; then
-    echo "Error: $R2 is not a valid gzip-compressed file or is corrupted."
-    exit 1
-fi
+            # Double-check the re-compressed file
+            if ! gzip -t "$file" 2>/dev/null; then
+                echo "Error: Re-compressed file $file is still invalid. Please check the file manually."
+                exit 1
+            else
+                echo "Validation confirmed for re-compressed file $file."
+            fi
+        else
+            echo "Error: Failed to re-compress $file. Please check the file manually."
+            exit 1
+        fi
+    fi
+}
+
+validate_gzip "$R1"
+validate_gzip "$R2"
+
+echo "Validated gzip compression for the files."
 
 echo "Validating paired-end FASTQ files:"
 echo "  R1: $R1"
